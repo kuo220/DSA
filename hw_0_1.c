@@ -12,12 +12,10 @@ void swap(int a[], int b[]);
 int lenOfNum(int num[]);
 char compare(int a[], int b[]);
 bool isZero(int num[]);
-// bool isEqual(int a[], int b[]);
-// void add(int a[], int b[], int ans[]);
 void subtract(int a[], int b[]);
-// void multiply(int a[], int b[], int ans[]);
+void multiply(int a[], int b[], int ans[]);
 void multiplyInt(int ans[], int x);
-void divide(int a[], int x);
+void divideInt(int a[], int x);
 void printBigInt(int ans[]);
 void binaryGCD(int a[], int b[], int ans[]);
 
@@ -109,11 +107,21 @@ char compare(int a[], int b[])
                 return 'a';
             }
 
-            else
+            else if(a[i] == b[i])
+            {
+                continue;
+            }
+
+            else if(a[i] < b[i])
             {
                 return 'b';
             }
            
+        }
+
+        
+        {
+            return 'b';
         }
     }
 
@@ -149,33 +157,6 @@ bool isZero(int num[])
     return (cnt == MAX_SIZE) ? true : false;
 }
 
-
-// bool isEqual(int a[], int b[])
-// {   
-//     int cnt = 0;
-
-//     for(int i = (MAX_SIZE - 1); i >=0; i--)
-//     {
-//         if(a[i] == b[i])
-//         {
-//             cnt++;
-//         }
-//     }
-
-//     return (cnt == MAX_SIZE) ? true : false;
-// }
-
-// void add(int a[], int b[], int ans[])
-// {
-//     int carry = 0;
-
-//     for(int i = 0; i < MAX_SIZE; i++)
-//     {
-//         ans[i] = a[i] + b[i] + carry;
-//         carry = ans[i] / 10;
-//         ans[i] %= 10;
-//     }
-// }
 
 
 void subtract(int a[], int b[])
@@ -256,7 +237,7 @@ void multiplyInt(int num[], int x)
 }
 
 
-void divide(int a[], int x)
+void divideInt(int a[], int x)
 {
     int r = 0;
     int q[MAX_SIZE] = {0};
@@ -302,19 +283,19 @@ void binaryGCD(int a[], int b[], int ans[])
 
         if(a[0] % 2 == 0 && b[0] % 2 == 0)
         {
-            divide(a, 2);
-            divide(b, 2);
+            divideInt(a, 2);
+            divideInt(b, 2);
             multiplyInt(tempAns, 2);
         }
 
         else if(a[0] % 2 == 0 && b[0] % 2 != 0) // a is even
         {
-            divide(a, 2);
+            divideInt(a, 2);
         }
 
         else if(a[0] % 2 != 0 && b[0] % 2 == 0) // b is even
         {
-            divide(b, 2);
+            divideInt(b, 2);
         }
 
         if(compare(a, b) == 'b')
@@ -322,11 +303,8 @@ void binaryGCD(int a[], int b[], int ans[])
             swap(a, b);
         }
         
-        
-        if(a[0] % 2 != 0 && b[0] % 2 != 0) // both a and b is odd
-        {
-            subtract(a, b);
-        }
+        subtract(a, b);
+
 
     }
 
