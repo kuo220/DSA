@@ -1,0 +1,41 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+
+typedef struct Node
+{
+    int* next;
+}Node;
+
+/* segmentation fault */
+int main()
+{
+    Node* node;
+
+    int n = 0;
+    scanf("%d", &n);
+
+    node->next = (int*)malloc(n * sizeof(int));
+
+    for(int i = 0; i < n; i++)
+    {
+        scanf("%d", &node->next[i]);
+    }
+}
+
+
+/* run successfully */
+int main()
+{
+    Node node;
+
+    int n = 0;
+    scanf("%d", &n);
+
+    node.next = (int*)malloc(n * sizeof(int));
+
+    for(int i = 0; i < n; i++)
+    {
+        scanf("%d", &node.next[i]);
+    }
+}
