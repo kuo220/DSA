@@ -1,0 +1,581 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdbool.h>
+
+#define MAX_RULE  50
+
+
+/* XOR */
+void* xor(void* a, void* b)
+{
+    return (void*)((unsigned long)(a) ^ (unsigned long)(b));
+}
+
+
+typedef struct Bathroom
+{
+    bool close;
+    struct Group* gpHead;
+    struct Group* gpTail;
+}Bathroom;
+
+
+typedef struct Group
+{
+    int groupId;
+    struct Group* gpLink;
+    struct USB* usbHead;
+    struct USB* usbTail;
+}Group;
+
+
+typedef struct USB
+{
+    int id;
+    struct USB* usbLink;
+}USB;
+
+
+
+/* Initialize */
+void inputSitu(char ** situRule, int situNum);
+void initBathroom(Bathroom* br, int brNum);
+void initGroupPos(Group*** groupPos, int brNum, int groupNum);
+int charToInt(char c);
+
+/* Push/Pop */
+void pushGroup(Bathroom* br, Group*** groupPos, int m, int groupId);
+void popGroupFromHead(Bathroom* br, Group*** groupPos, int m);
+void popGroupFromTail(Bathroom* br, Group*** groupPos, int m);
+
+void pushUSB(Group* group, int id);
+void popUSBFromHead(Group* group);
+void popUSBFromTail(Group* group);
+
+/* Execute */
+void enter(Bathroom* br, Group*** groupPos, int groupId, int id, int m);
+void leave(Bathroom* br, Group*** groupPos, int m);
+void go(Bathroom* br, Group*** groupPos, int m);
+void reverseLine(Bathroom* br, int m);
+int findBathroom(Bathroom* br, int closeBr, int brNum);
+void close(Bathroom* br, Group*** groupPos, int closeBr, int brNum);
+void execute(Bathroom* br, Group*** groupPos, char** situRule, int brNum, int situNum);
+void printResult(Bathroom* br, int brNum);
+
+
+int main()
+{
+    int brNum = 0, situNum = 0, groupNum = 0;
+
+    scanf("%d %d %d", &brNum, &situNum, &groupNum);
+    getchar();
+
+    /* situation */
+    char** situRule = (char**)calloc(situNum, sizeof(char*));
+    inputSitu(situRule, situNum);
+
+    /* bathroom */
+    Bathroom* br = (Bathroom*)calloc(brNum, sizeof(Bathroom));
+    initBathroom(br, brNum);
+
+    /* bathroom's group position */
+    Group*** groupPos = (Group***)calloc(brNum, sizeof(Group**));
+    initGroupPos(groupPos, brNum, groupNum);
+
+    execute(br, groupPos, situRule, brNum, situNum);
+
+}
+
+
+/* Function */
+
+/* input the situation data */
+void inputSitu(char ** situRule, int situNum)
+{
+    for(int i = 0; i < situNum; i++)
+    {
+        situRule[i] = (char*)calloc(MAX_RULE, sizeof(char));
+        gets(situRule[i]);
+    }
+}
+
+/* initialize bathroom */
+void initBathroom(Bathroom* br, int brNum)
+{
+    for(int i = 0; i < brNum; i++)
+    {
+        br[i].close = false;
+        br[i].gpHead = NULL;
+        br[i].gpTail = NULL;
+    }
+}
+
+void initGroupPos(Group*** groupPos, int brNum, int groupNum)
+{
+    for(int i = 0; i < brNum; i++)
+    {
+        groupPos[i] = (Group**)calloc(groupNum, sizeof(Group*));
+    }
+
+    for(int i = 0; i < brNum; i++)
+    {
+        for(int j = 0; j < groupNum; j++)
+        {
+            groupPos[i][j] = NULL;
+        }
+    }
+}
+
+int charToInt(char c)
+{
+    return c - '0';
+}
+
+
+/* ========================================================================================= */
+/* Group */
+void pushGroup(Bathroom* br, Group*** groupPos, int m, int groupId)
+{
+    Group* newGp = (Group*)calloc(1, sizeof(Group)); // calloc : initialize the Group struct with 0
+    // Group* newGp = (Group*)malloc(sizeof(Group));
+    newGp->groupId = groupId;
+
+    if(br[m].gpHead == NULL) // the bathroom has no line
+    {
+        newGp->gpLink = NULL;
+        br[m].gpHead = newGp;
+    }
+
+    else if(br[m].gpHead != NULL)
+    {
+        br[m].gpTail->gpLink = xor(br[m].gpTail->gpLink, newGp);
+        newGp->gpLink = br[m].gpTail;
+    }
+    br[m].gpTail = newGp;
+
+    groupPos[m][groupId] = newGp;
+}
+
+
+void popGroupFromHead(Bathroom* br, Group*** groupPos, int m)
+{
+    Group* tmp = br[m].gpHead;
+    int groupID = br[m].gpHead->groupId;
+
+    if(br[m].gpHead != br[m].gpTail)
+    {
+        groupPos[m][groupID] = NULL;
+        br[m].gpHead = br[m].gpHead->gpLink;
+        br[m].gpHead->gpLink = xor(br[m].gpHead->gpLink, tmp);
+        free(tmp);
+        // return;
+    }
+    else if(br[m].gpHead == br[m].gpTail)
+    {
+        groupPos[m][groupID] = NULL;
+        br[m].gpHead = NULL;
+        br[m].gpTail = NULL;
+        free(tmp);
+        // return;
+    }
+}
+
+
+void popGroupFromTail(Bathroom* br, Group*** groupPos, int m)
+{
+    Group* tmp = br[m].gpTail;
+    int groupID = br[m].gpTail->groupId;
+
+    if(br[m].gpTail != br[m].gpHead)
+    {
+        groupPos[m][groupID] = NULL;
+        br[m].gpTail = br[m].gpTail->gpLink;
+        br[m].gpTail->gpLink = xor(br[m].gpTail->gpLink, tmp);
+        free(tmp);
+        return;
+    }
+    else if(br[m].gpTail == br[m].gpHead)
+    {   
+        groupPos[m][groupID] = NULL;
+        br[m].gpHead = NULL;
+        br[m].gpTail = NULL;
+        free(tmp);
+        // return;
+    }
+}
+
+
+/* USB */
+void pushUSB(Group* group, int id)
+{
+    USB* newUSB = (USB*)calloc(1, sizeof(USB)); 
+    newUSB->id = id;
+
+    if(group->usbHead == NULL)
+    {
+        newUSB->usbLink = NULL;
+        group->usbHead = newUSB;
+    }
+
+    else
+    {
+        group->usbTail->usbLink = xor(group->usbTail->usbLink, newUSB);
+        newUSB->usbLink = group->usbTail;
+    }
+    group->usbTail = newUSB;
+}
+
+
+void popUSBFromHead(Group* group)
+{
+    USB* tmp = group->usbHead;
+
+    if(group->usbHead != group->usbTail)
+    {
+        group->usbHead = group->usbHead->usbLink;
+        group->usbHead->usbLink = xor(group->usbHead->usbLink, tmp);
+        free(tmp);
+        return;
+    }
+    else if(group->usbHead == group->usbTail) // the last USB in the group
+    {
+        group->usbHead = NULL;
+        group->usbTail = NULL;
+        free(tmp);
+        return;
+    }
+}
+
+
+void popUSBFromTail(Group* group)
+{
+    USB* tmp = group->usbTail;
+    
+    if(group->usbTail != group->usbHead)
+    {
+        group->usbTail = group->usbTail->usbLink; // usbTail pointer move to the previous usb
+        group->usbTail->usbLink = xor(group->usbTail->usbLink, tmp);
+        free(tmp);
+        return;
+    }
+    else if(group->usbTail == group->usbHead)
+    {
+        group->usbHead = NULL;
+        group->usbTail = NULL;
+        free(tmp);
+        return;
+    }
+}
+
+/* ========================================================================================= */
+
+void enter(Bathroom* br, Group*** groupPos, int groupId, int id, int m)
+{
+    if(br[m].gpHead == NULL) // insert at the head of the line
+    {
+        pushGroup(br, groupPos, m, groupId);
+        pushUSB(br[m].gpHead, id);
+    }
+    else
+    {
+        if(groupPos[m][groupId] == NULL) // insert at the end of the line
+        {   
+            pushGroup(br, groupPos, m, groupId);
+            pushUSB(br[m].gpTail, id);
+        }
+
+        else if(groupPos[m][groupId] != NULL) // insert at the group's end and USB cut line
+        {
+            Group* gpPos = groupPos[m][groupId];
+            pushUSB(gpPos, id);
+        }
+    }
+}
+
+
+void leave(Bathroom* br, Group*** groupPos, int m)
+{
+    if(br[m].gpTail->usbHead == br[m].gpTail->usbTail) // the group's last USB
+    {
+        popUSBFromTail(br[m].gpTail);
+        popGroupFromTail(br, groupPos, m);
+        return;
+    }
+    else if(br[m].gpHead->usbHead != br[m].gpTail->usbTail)
+    {
+        popUSBFromTail(br[m].gpTail);
+        return;
+    }
+}
+
+
+void go(Bathroom* br, Group*** groupPos, int m) // pop USB from the line's head
+{   
+
+    if(br[m].gpHead->usbHead == br[m].gpHead->usbTail) // the group's last USB
+    {
+        popUSBFromHead(br[m].gpHead);
+        popGroupFromHead(br, groupPos, m);
+        return;
+    }
+
+    else if(br[m].gpHead->usbHead != br[m].gpHead->usbTail)
+    {
+        popUSBFromHead(br[m].gpHead);
+        return;
+    }
+}
+
+
+void reverseLine(Bathroom* br, int closeBr)
+{   
+    USB* tmpUSB = br[closeBr].gpTail->usbHead;
+    br[closeBr].gpTail->usbHead = br[closeBr].gpTail->usbTail;
+    br[closeBr].gpTail->usbTail = tmpUSB;
+}
+
+
+int findBathroom(Bathroom* br, int closeBr, int brNum)
+{
+    if(closeBr > 0)
+    {
+        for(int i = (closeBr - 1); i >= 0; i--)
+        {
+            if(br[i].close == false)
+            {
+                return i;
+            }
+        }
+
+        for(int i = (brNum - 1); i > closeBr; i--)
+        {
+            if(br[i].close == false)
+            {
+                return i;
+            }
+        }
+    }
+    else if(closeBr == 0)
+    {
+        for(int i = (brNum - 1); i > 0; i--)
+        {
+            if(br[i].close == false)
+            {
+                return i;
+            }
+        }
+    }
+    return closeBr;
+}
+
+
+void close(Bathroom* br, Group*** groupPos, int closeBr, int brNum)
+{
+    int nextBr = findBathroom(br, closeBr, brNum);
+
+    while(1)
+    {  
+        int moveGpId = br[closeBr].gpTail->groupId; // the group which will be moved
+        Group* gpCutPos = groupPos[nextBr][moveGpId]; // new position that the group will cut
+
+        if(gpCutPos == NULL) // 新隊伍沒有一樣的隊伍，兩種情況：新隊伍是空的直接排入 or 排到隊伍最後面（都要加新的group）
+        {   
+            reverseLine(br, closeBr);
+            pushGroup(br, groupPos, nextBr, br[closeBr].gpTail->groupId);
+            br[nextBr].gpTail->usbHead = br[closeBr].gpTail->usbHead;
+            br[nextBr].gpTail->usbTail = br[closeBr].gpTail->usbTail;
+            popGroupFromTail(br, groupPos, closeBr);
+
+            if(br[closeBr].gpHead == NULL && br[closeBr].gpTail == NULL) break;
+        }
+        
+        else if(gpCutPos != NULL) // 找同樣的group插隊
+        {
+            reverseLine(br, closeBr);
+            gpCutPos->usbTail->usbLink = xor(gpCutPos->usbTail->usbLink, br[closeBr].gpTail->usbHead);
+            br[closeBr].gpTail->usbHead->usbLink = xor(br[closeBr].gpTail->usbHead->usbLink, gpCutPos->usbTail);
+            gpCutPos->usbTail = br[closeBr].gpTail->usbTail;
+            popGroupFromTail(br, groupPos, closeBr);
+
+            if(br[closeBr].gpHead == NULL && br[closeBr].gpTail == NULL) break;
+        }
+    }
+}
+
+
+void execute(Bathroom* br, Group*** groupPos, char** situRule, int brNum, int situNum) 
+{
+    int enterData[3] = {0}; // enter[0] : groupId, enter[1] : id, enter[2] : bathroom
+
+    for(int i = 0; i < situNum; i++)
+    {   
+        int len = strlen(situRule[i]);
+
+        switch(situRule[i][0])
+        {
+            case 'e': // enter
+            {
+                int digit = 0;
+                int index = 0;
+
+                for(int j = 6; j < len; j++)
+                {
+                    if(situRule[i][j] != ' ')
+                    {
+                        digit = digit * 10 + charToInt(situRule[i][j]);
+                    }
+                    else if(situRule[i][j] == ' ') // record the number 
+                    {   
+                        enterData[index] = digit;
+                        digit = 0;
+                        index++;
+                    }
+
+                    if(situRule[i][j + 1] == '\0') // the last number which is next to \0
+                    {
+                        enterData[index] = digit;
+                        break;
+                    }
+                }
+
+                enter(br, groupPos, enterData[0], enterData[1], enterData[2]);
+                break;
+            }
+
+            case 'l':
+            {
+                int digit = 0;
+
+                for(int j = 6; j < len; j++)
+                {   
+                    if(situRule[i][j] != ' ')
+                    {
+                        digit = digit * 10 + charToInt(situRule[i][j]);
+                    }
+
+                    if(situRule[i][j + 1] == '\0')
+                    {
+                        leave(br, groupPos, digit);
+                        break;
+                    }
+                }
+                break;
+            }
+
+            case 'g': // go
+            {   
+                int digit = 0;
+
+                for(int j = 3; j < len; j++)
+                {
+                    if(situRule[i][j] != ' ')
+                    {
+                        digit = digit * 10 + charToInt(situRule[i][j]);
+                    }
+
+                    if(situRule[i][j + 1] == '\0')
+                    {
+                        go(br, groupPos, digit);
+                        break;
+                    }
+                }
+                break;
+            }
+
+            case 'c':
+            {   
+                int closeBr = 0;
+
+                for(int j = 6; j < len; j++)
+                {
+                    if(situRule[i][j] != ' ')
+                    {
+                        closeBr = closeBr * 10 + charToInt(situRule[i][j]);
+                    }
+
+                    if(situRule[i][j + 1] == '\0')
+                    {   
+                        br[closeBr].close = true;
+                        break;
+                    }
+                }
+                
+                if(br[closeBr].gpHead != NULL && br[closeBr].gpTail != NULL)
+                {
+                    close(br, groupPos, closeBr, brNum);
+                }
+                break;
+            }
+        }
+    }
+    printResult(br, brNum);
+}
+
+
+void printResult(Bathroom* br, int brNum)
+{
+    for(int i = 0; i < brNum; i++)
+    {
+        if(br[i].gpHead == NULL || br[i].close == true)
+        {
+            printf("\n");
+        }
+
+        else 
+        {   
+            Group* gpHeadTmp = br[i].gpHead;
+            Group* gpNext = br[i].gpHead->gpLink;
+
+            while(1) // move group
+            {
+                USB* usbHeadTmp = br[i].gpHead->usbHead;
+                USB* usbNext = br[i].gpHead->usbHead->usbLink;
+
+                while(1) // move USB
+                {
+                    if(br[i].gpHead->usbHead != br[i].gpHead->usbTail)
+                    {
+                        printf("%d ", br[i].gpHead->usbHead->id);
+                        
+                        usbHeadTmp = br[i].gpHead->usbHead;
+                        br[i].gpHead->usbHead = usbNext;
+
+                        if(usbNext != br[i].gpHead->usbTail)
+                        {
+                            usbNext = xor(br[i].gpHead->usbHead->usbLink, usbHeadTmp);
+                        }
+
+                        else if(br[i].gpHead->usbHead == br[i].gpHead->usbTail)
+                        {
+                            printf("%d ", br[i].gpHead->usbHead->id);
+                            break;
+                        }
+                    }
+
+                    else if(br[i].gpHead->usbHead == br[i].gpHead->usbTail) // there only one USB in the group
+                    {
+                        printf("%d ", br[i].gpHead->usbHead->id);
+                        break;
+                    }
+                }
+
+                if(br[i].gpHead == br[i].gpTail) // the last group of the line // move to next bathroom
+                {
+                    printf("\n");
+                    break;
+                }
+
+
+                gpHeadTmp = br[i].gpHead;
+                br[i].gpHead = gpNext;
+
+                if(gpNext != br[i].gpTail)
+                {
+                    gpNext = xor(br[i].gpHead->gpLink, gpHeadTmp);
+                }
+            }
+        }
+    }
+}
+
